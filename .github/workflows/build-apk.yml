@@ -1,0 +1,47 @@
+name: Build ISS Eye Control APK
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js Engine
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Cordova CLI Compiler
+        run: npm install -g cordova@12.0.0
+
+      - name: Create Native Android Shell
+        run: |
+          cordova create build_dir com.imransigma.isseyecontrol "ISSEyeControl"
+          cd build_dir
+          cordova platform add android@12.0.0
+          rm -rf www/*
+          cp ../index.html www/index.html
+
+      - name: Inject Configuration Matrix & Permissions
+        run: |
+          cd build_dir
+          echo '<?xml version="1.0" encoding="utf-8"?><widget id="com.imransigma.isseyecontrol" version="1.0.0" xmlns="http://w3.org" xmlns:cdv="http://apache.org"><name>ISSEyeControl</name><description>Advanced Eye Tracking Core</description><author email="dev@imransigma.com">Imran Ali</author><content src="index.html" /><access origin="*" /><allow-intent href="http://*/*" /><allow-intent href="https://*/*" /><platform name="android"><config-file target="AndroidManifest.xml" parent="/*"><uses-permission android:name="android.permission.CAMERA" /><uses-feature android:name="android.hardware.camera" /><uses-feature android:name="android.hardware.camera.autofocus" /></config-file></platform></widget>' > config.xml
+
+      - name: Set up Java Environment
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      - name: Compile and Output Signed APK
+        run: |
+          cd build_dir
+          cordova build android --device -- --gradleArg=-Pandroid.useAndroidX=true --gradleArg=-Pandroid.enableJetifier=true
+
+      - name: Upload Finished APK File
+        uses: actions/upload-artifact@v4
+        with:
+          name: ISS-Eye-Control-Output
+          path: build_dir/platforms/android/app/build/outputs/apk/debug/app-debug.apk
